@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Move Tree</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 400px 1fr 350px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        /* Chess Board Styles */
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+            gap: 0;
+            margin: 20px auto;
+            border: 3px solid #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .square {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .square.light {
+            background-color: #f0d9b5;
+        }
+        
+        .square.dark {
+            background-color: #b58863;
+        }
+        
+        .square:hover {
+            opacity: 0.8;
+        }
+        
+        .square.highlight {
+            background-color: #baca44 !important;
+        }
+        
+        .square.lastmove {
+            background-color: rgba(155, 199, 0, 0.41) !important;
+        }
+        
+        .coordinates {
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        /* Evaluation Bar */
+        .eval-container {
+            width: 30px;
+            height: 400px;
+            background: linear-gradient(to bottom, white 0%, white 50%, black 50%, black 100%);
+            border-radius: 5px;
+            position: relative;
+            margin: 20px auto;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+        }
+        
+        .eval-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #ef4444;
+            transition: top 0.3s ease;
+        }
+        
+        .eval-number {
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-top: 10px;
+            color: #333;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .btn-info {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #2563eb;
+        }
+        
+        .moves-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            min-height: 50px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .move-item {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .move-number {
+            background: rgba(255,255,255,0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.85em;
+        }
+        
+        .player-white {
+            border-left: 4px solid #fff;
+        }
+        
+        .player-black {
+            border-left: 4px solid #333;
+        }
+        
+        .variations-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            min-height: 50px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .variation-btn {
+            background: #f0f0f0;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+            font-weight: 500;
+        }
+        
+        .variation-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-box {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-weight: 600;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            font-style: italic;
+        }
+        
+        .board-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .eval-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .search-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>♟️ Chess Move Tree Manager</h1>
+            <p style="color: #666; margin-top: 10px;">Manage your chess variations with visual board</p>
+        </div>
+        
+        <div class="main-grid">
+            <!-- Left Panel - Controls -->
+            <div class="card">
+                <h2>➕ Add Move</h2>
+                <div class="input-group">
+                    <input type="text" id="moveInput" placeholder="Enter move (e.g. e4, Nf3, Qxd5)" onkeypress="if(event.key==='Enter') addMove()">
+                    <button class="btn-primary" onclick="addMove()">Add</button>
+                </div>
+                
+                <h2 style="margin-top: 30px;">🔍 Search Move</h2>
+                <div class="input-group">
+                    <input type="text" id="searchInput" placeholder="Search for a move" onkeypress="if(event.key==='Enter') searchMove('dfs')">
+                </div>
+                <div class="search-buttons">
+                    <button class="btn-success" onclick="searchMove('dfs')">🌲 DFS Search</button>
+                    <button class="btn-info" onclick="searchMove('bfs')">📊 BFS Search</button>
+                </div>
+                <div id="searchResult"></div>
+                
+                <h2 style="margin-top: 30px;">⚙️ Controls</h2>
+                <div class="controls">
+                    <button class="btn-secondary" onclick="moveBack()">⬅️ Back</button>
+                    <button class="btn-danger" onclick="reset()">🔄 Reset</button>
+                </div>
+                
+                <h2 style="margin-top: 30px;">📊 Statistics</h2>
+                <div class="stats-grid" style="grid-template-columns: 1fr;">
+                    <div class="stat-box">
+                        <div class="stat-value" id="maxDepth">0</div>
+                        <div class="stat-label">Maximum Depth</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="rootBranches">0</div>
+                        <div class="stat-label">Root Branches</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="branchingFactor">0</div>
+                        <div class="stat-label">Branching Factor</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Center Panel - Chess Board -->
+            <div class="card">
+                <h2>♟️ Chess Board</h2>
+                <div class="board-container">
+                    <div>
+                        <div class="eval-label">Evaluation</div>
+                        <div class="eval-container">
+                            <div class="eval-marker" id="evalMarker"></div>
+                        </div>
+                        <div class="eval-number" id="evalNumber">0.0</div>
+                    </div>
+                    <div>
+                        <div class="chessboard" id="chessboard"></div>
+                        <div class="coordinates">a-h (columns) × 1-8 (rows)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Panel - Moves and Variations -->
+            <div class="card">
+                <h2>📋 Current Move Sequence</h2>
+                <div class="moves-list" id="movesList">
+                    <div class="empty-state">No moves added yet</div>
+                </div>
+                
+                <h2>🌿 Current Variations</h2>
+                <div class="variations-list" id="variationsList">
+                    <div class="empty-state">No variations available</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Chess pieces in Unicode
+        const pieces = {
+            'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+            'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+        };
+        
+        // Initial chess board position
+        const initialBoard = [
+            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+        ];
+        
+        let board = JSON.parse(JSON.stringify(initialBoard));
+        let totalEvaluation = 0;
+        let moveHistory = [];
+        
+        // Convert algebraic notation to board coordinates
+        function parseMove(move) {
+            const cols = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7};
+            
+            // Remove check/checkmate symbols
+            move = move.replace('+', '').replace('#', '');
+            
+            // Get piece type
+            let piece = 'P';
+            if (move[0] in pieces && move[0] === move[0].toUpperCase()) {
+                piece = move[0];
+                move = move.substring(1);
+            }
+            
+            // Check for capture
+            const isCapture = move.includes('x');
+            if (isCapture) {
+                move = move.replace('x', '');
+            }
+            
+            // Get destination square
+            const destCol = cols[move[move.length - 2]];
+            const destRow = 8 - parseInt(move[move.length - 1]);
+            
+            return {piece, destRow, destCol, isCapture};
+        }
+        
+        function applyMove(move, isWhite) {
+            try {
+                const parsed = parseMove(move);
+                const pieceChar = isWhite ? parsed.piece : parsed.piece.toLowerCase();
+                
+                // Find the piece on the board (simple version - finds closest matching piece)
+                let found = false;
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        if (board[row][col] === pieceChar) {
+                            // Simple move - just move to destination
+                            board[row][col] = '';
+                            board[parsed.destRow][parsed.destCol] = pieceChar;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+            } catch (e) {
+                console.log('Could not parse move:', move);
+            }
+        }
+        
+        function resetBoard() {
+            board = JSON.parse(JSON.stringify(initialBoard));
+            moveHistory = [];
+        }
+        
+        function createBoard() {
+            const chessboard = document.getElementById('chessboard');
+            chessboard.innerHTML = '';
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.className = 'square';
+                    square.className += (row + col) % 2 === 0 ? ' light' : ' dark';
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+                    
+                    const piece = board[row][col];
+                    if (piece) {
+                        square.textContent = pieces[piece];
+                    }
+                    
+                    chessboard.appendChild(square);
+                }
+            }
+        }
+        
+        function updateEvaluationBar(evaluation) {
+            totalEvaluation = evaluation;
+            const evalMarker = document.getElementById('evalMarker');
+            const evalNumber = document.getElementById('evalNumber');
+            
+            // Convert evaluation to percentage (capped at +/- 10)
+            const cappedEval = Math.max(-10, Math.min(10, evaluation));
+            const percentage = ((10 - cappedEval) / 20) * 100;
+            
+            evalMarker.style.top = percentage + '%';
+            evalNumber.textContent = evaluation > 0 ? '+' + evaluation.toFixed(1) : evaluation.toFixed(1);
+            
+            if (evaluation > 0) {
+                evalNumber.style.color = '#10b981';
+            } else if (evaluation < 0) {
+                evalNumber.style.color = '#ef4444';
+            } else {
+                evalNumber.style.color = '#666';
+            }
+        }
+        
+        function updateDisplay() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    const movesList = document.getElementById('movesList');
+                    if (data.path.length === 0) {
+                        movesList.innerHTML = '<div class="empty-state">No moves added yet</div>';
+                        totalEvaluation = 0;
+                        resetBoard();
+                    } else {
+                        // Calculate cumulative evaluation
+                        totalEvaluation = data.path.reduce((sum, m) => sum + m.evaluation, 0);
+                        
+                        // Update board with moves
+                        resetBoard();
+                        data.path.forEach((m, idx) => {
+                            const isWhite = m.player === 'black'; // Player who MADE the move
+                            applyMove(m.move, isWhite);
+                        });
+                        
+                        movesList.innerHTML = data.path.map(m => 
+                            `<div class="move-item player-${m.player}">
+                                <span class="move-number">#${m.move_number}</span>
+                                <span>${m.move}</span>
+                                <span style="opacity: 0.7; font-size: 0.9em;">(${m.evaluation > 0 ? '+' : ''}${m.evaluation})</span>
+                            </div>`
+                        ).join('');
+                    }
+                    
+                    createBoard();
+                    updateEvaluationBar(totalEvaluation);
+                    
+                    const variationsList = document.getElementById('variationsList');
+                    if (data.variations.length === 0) {
+                        variationsList.innerHTML = '<div class="empty-state">No variations available</div>';
+                    } else {
+                        variationsList.innerHTML = data.variations.map(v => 
+                            `<div class="variation-btn" onclick="selectVariation('${v.move}')">
+                                ${v.move} <span style="opacity: 0.7;">(${v.evaluation > 0 ? '+' : ''}${v.evaluation})</span>
+                            </div>`
+                        ).join('');
+                    }
+                    
+                    document.getElementById('maxDepth').textContent = data.stats.max_depth;
+                    document.getElementById('rootBranches').textContent = data.stats.root_branches;
+                    document.getElementById('branchingFactor').textContent = data.stats.branching_factor;
+                });
+        }
+        
+        function addMove() {
+            const move = document.getElementById('moveInput').value.trim();
+            if (!move) return;
+            
+            fetch('/api/add_move', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({move: move})
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('moveInput').value = '';
+                updateDisplay();
+            });
+        }
+        
+        function moveBack() {
+            fetch('/api/move_back', {method: 'POST'})
+                .then(() => updateDisplay());
+        }
+        
+        function reset() {
+            if (confirm('Are you sure you want to reset all moves?')) {
+                fetch('/api/reset', {method: 'POST'})
+                    .then(() => updateDisplay());
+            }
+        }
+        
+        function searchMove(searchType) {
+            const move = document.getElementById('searchInput').value.trim();
+            if (!move) return;
+            
+            fetch('/api/search', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({move: move, search_type: searchType})
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('searchResult');
+                if (data.found) {
+                    const searchName = searchType === 'dfs' ? 'DFS' : 'BFS';
+                    resultDiv.innerHTML = `<div class="alert alert-success">✓ Move "${move}" found using ${searchName}! (Move #${data.move_number})</div>`;
+                    updateDisplay();
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">✗ Move "${move}" not found.</div>`;
+                }
+                setTimeout(() => resultDiv.innerHTML = '', 3000);
+            });
+        }
+        
+        function selectVariation(move) {
+            fetch('/api/select_variation', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({move: move})
+            })
+            .then(() => updateDisplay());
+        }
+        
+        // Initialize
+        createBoard();
+        updateDisplay();
+    </script>
+</body>
+</html>
